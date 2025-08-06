@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.neec.dto.LoginRequestDTO;
 import com.neec.dto.RegistrationRequestDTO;
 import com.neec.entity.UserLogin;
+import com.neec.enums.EnumRole;
 import com.neec.enums.EnumUserAccountStatus;
 import com.neec.exception.UserAccountSuspendedException;
 import com.neec.exception.UserAlreadyExistsException;
@@ -47,6 +48,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 				.emailAddress(emailAddress.trim())
 				.hashedPassword(bCryptPasswordEncoder.encode(dto.getPassword()))
 				.accountStatus(EnumUserAccountStatus.PENDING_VERIFICATION)
+				.role(EnumRole.APPLICANT)
 				.verificationToken(UUID.randomUUID().toString())
 				.verificationTokenExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusHours(24))
 				.build();
@@ -60,15 +62,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 		String emailAddress = loginRequestDTO.getEmailAddress().trim();
 		UserLogin userLogin = userLoginRepository.findByEmailAddress(emailAddress)
 				.orElseThrow(() -> new UserNotFoundException("invalid email or password."));
+		if(!bCryptPasswordEncoder.matches(loginRequestDTO.getPassword(), userLogin.getHashedPassword())) {
+			throw new UserNotFoundException("invalid email or password.");
+		}
 		if(userLogin.getAccountStatus().equals(EnumUserAccountStatus.SUSPENDED)) {
 			throw new UserAccountSuspendedException("Your account is suspended. Please contact Administrator");
 		}
 		if(userLogin.getAccountStatus().equals(EnumUserAccountStatus.PENDING_VERIFICATION)) {
 			throw new UserNotVerifiedException("Your account is not verified. Please check your email.");
 		}
-		if(!bCryptPasswordEncoder.matches(loginRequestDTO.getPassword(), userLogin.getHashedPassword())) {
-			throw new UserNotFoundException("invalid email or password.");
-		}
+
 		String jwtToken = jwtService.generateJwtToken(userLogin.getUserLoginId(),
 				userLogin.getEmailAddress(),
 				userLogin.getRole().name());
