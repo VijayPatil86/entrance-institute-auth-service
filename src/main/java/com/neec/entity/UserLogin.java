@@ -3,6 +3,7 @@ package com.neec.entity;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
+import com.neec.enums.EnumRole;
 import com.neec.enums.EnumUserAccountStatus;
 
 import jakarta.persistence.Column;
@@ -53,7 +54,11 @@ public class UserLogin {
 	
 	@Column(name="UPDATED_AT", insertable = true, updatable = true, nullable = false, unique = false)
 	private OffsetDateTime updatedAt;
-	
+
+	@Column(name = "ROLE", insertable = true, updatable = true, nullable = false, unique = false)
+	@Enumerated(EnumType.STRING)
+	private EnumRole role;
+
 	@PrePersist
 	void onCreate() {
 		this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
