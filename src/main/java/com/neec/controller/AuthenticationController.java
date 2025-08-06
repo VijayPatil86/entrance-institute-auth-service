@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.neec.dto.LoginRequestDTO;
+import com.neec.dto.LoginResponseDTO;
 import com.neec.dto.RegistrationRequestDTO;
 import com.neec.service.AuthenticationService;
 
@@ -58,6 +59,6 @@ public class AuthenticationController {
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDTO dto) {
 		String jwtToken = authenticationService.login(dto);
-		return ResponseEntity.ok(Map.of("token", jwtToken));
+		return ResponseEntity.ok(LoginResponseDTO.builder().jwtToken(jwtToken).build());
 	}
 }
