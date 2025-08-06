@@ -50,7 +50,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 				.build();
 		UserLogin savedUser = userLoginRepository.save(newUser);
 	}
-	
+
+	@Transactional(readOnly = true)
 	@Observed(name = "authentication.service.login.user", contextualName = "user login")
 	@Override
 	public void login(LoginRequestDTO loginRequestDTO) {
