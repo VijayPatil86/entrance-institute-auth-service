@@ -26,11 +26,13 @@ import io.micrometer.observation.annotation.Observed;
 public class AuthenticationServiceImpl implements AuthenticationService {
 	private UserLoginRepository userLoginRepository;
 	private BCryptPasswordEncoder bCryptPasswordEncoder;
+	private JwtService jwtService;
 	
 	public AuthenticationServiceImpl(UserLoginRepository userLoginRepository, 
-			BCryptPasswordEncoder bCryptPasswordEncoder) {
+			BCryptPasswordEncoder bCryptPasswordEncoder, JwtService jwtService) {
 		this.userLoginRepository = userLoginRepository;
 		this.bCryptPasswordEncoder = bCryptPasswordEncoder;
+		this.jwtService = jwtService;
 	}
 
 	@Observed(name = "authentication.service.register.user", contextualName = "registering a new user")
@@ -54,7 +56,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 	@Transactional(readOnly = true)
 	@Observed(name = "authentication.service.login.user", contextualName = "user login")
 	@Override
-	public void login(LoginRequestDTO loginRequestDTO) {
+	public String login(LoginRequestDTO loginRequestDTO) {
 		String emailAddress = loginRequestDTO.getEmailAddress().trim();
 		UserLogin userLogin = userLoginRepository.findByEmailAddress(emailAddress)
 				.orElseThrow(() -> new UserNotFoundException("invalid email or password."));
@@ -67,5 +69,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 		if(!bCryptPasswordEncoder.matches(loginRequestDTO.getPassword(), userLogin.getHashedPassword())) {
 			throw new UserNotFoundException("invalid email or password.");
 		}
+		String jwtToken = jwtService.generateJwtToken(userLogin.getUserLoginId(),
+				userLogin.getEmailAddress(),
+				userLogin.getRole().name());
+		return jwtToken;
 	}
 }
