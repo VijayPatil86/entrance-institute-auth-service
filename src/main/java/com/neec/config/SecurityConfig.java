@@ -10,6 +10,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 	private static final String[] PUBLIC_ENPOINTS = {
 		"/api/v1/auth/register",
+		"/api/v1/auth/login",
 		"/swagger-ui/**",	// http://localhost:9051/swagger-ui/index.html
 		"/v3/api-docs/**"
 			/*,
