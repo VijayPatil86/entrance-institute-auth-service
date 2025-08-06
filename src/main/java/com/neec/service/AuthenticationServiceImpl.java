@@ -16,6 +16,7 @@ import com.neec.enums.EnumUserAccountStatus;
 import com.neec.exception.UserAccountSuspendedException;
 import com.neec.exception.UserAlreadyExistsException;
 import com.neec.exception.UserNotFoundException;
+import com.neec.exception.UserNotVerifiedException;
 import com.neec.repository.UserLoginRepository;
 
 import io.micrometer.observation.annotation.Observed;
@@ -55,15 +56,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 	public void login(LoginRequestDTO loginRequestDTO) {
 		String emailAddress = loginRequestDTO.getEmailAddress().trim();
 		UserLogin userLogin = userLoginRepository.findByEmailAddress(emailAddress)
-				.orElseThrow(() -> new UserNotFoundException("invalid login credentials"));
+				.orElseThrow(() -> new UserNotFoundException("invalid email or password."));
 		if(userLogin.getAccountStatus().equals(EnumUserAccountStatus.SUSPENDED)) {
 			throw new UserAccountSuspendedException("Your account is suspended. Please contact Administrator");
 		}
 		if(userLogin.getAccountStatus().equals(EnumUserAccountStatus.PENDING_VERIFICATION)) {
-			th
+			throw new UserNotVerifiedException("Your account is not verified. Please check your email.");
 		}
 		if(!bCryptPasswordEncoder.matches(loginRequestDTO.getPassword(), userLogin.getHashedPassword())) {
-			throw new UserNotFoundException("invalid login credentials");
+			throw new UserNotFoundException("invalid email or password.");
 		}
 	}
 }
