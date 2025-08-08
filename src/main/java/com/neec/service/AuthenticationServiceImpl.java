@@ -2,9 +2,13 @@ package com.neec.service;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.amqp.core.AmqpTemplate;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,15 +29,24 @@ import io.micrometer.observation.annotation.Observed;
 @Service
 @Transactional
 public class AuthenticationServiceImpl implements AuthenticationService {
+	@Value("${rabbitmq.topic.exchange.name}")
+	private String topicExchangeName;
+
+	@Value("${rabbitmq.routing.key}")
+	private String routingKey;
+
 	private UserLoginRepository userLoginRepository;
 	private BCryptPasswordEncoder bCryptPasswordEncoder;
 	private JwtService jwtService;
-	
+	private RabbitTemplate rabbitTemplate;
+
 	public AuthenticationServiceImpl(UserLoginRepository userLoginRepository, 
-			BCryptPasswordEncoder bCryptPasswordEncoder, JwtService jwtService) {
+			BCryptPasswordEncoder bCryptPasswordEncoder, JwtService jwtService,
+			RabbitTemplate rabbitTemplate) {
 		this.userLoginRepository = userLoginRepository;
 		this.bCryptPasswordEncoder = bCryptPasswordEncoder;
 		this.jwtService = jwtService;
+		this.rabbitTemplate = rabbitTemplate;
 	}
 
 	@Observed(name = "authentication.service.register.user", contextualName = "registering a new user")
@@ -53,6 +66,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 				.verificationTokenExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusHours(24))
 				.build();
 		UserLogin savedUser = userLoginRepository.save(newUser);
+		Map<String, String> message = Map.of(
+					"email", savedUser.getEmailAddress(),
+					"token", savedUser.getVerificationToken()
+				);
+		rabbitTemplate.convertAndSend(topicExchangeName, routingKey, message);
 	}
 
 	@Transactional(readOnly = true)
