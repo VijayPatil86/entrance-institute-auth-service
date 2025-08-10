@@ -22,10 +22,12 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.neec.dto.LoginRequestDTO;
 import com.neec.dto.RegistrationRequestDTO;
 import com.neec.entity.UserLogin;
 import com.neec.enums.EnumUserAccountStatus;
 import com.neec.exception.UserAlreadyExistsException;
+import com.neec.exception.UserNotFoundException;
 import com.neec.repository.UserLoginRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -126,5 +128,17 @@ public class AuthenticationServiceImplTest {
 		Map<String, String> messageSent = messageCaptor.getValue();
 		assertEquals("new.email.address@gmail.com", messageSent.get("email"), "Expected: correct email must be set");
 		assertEquals("7775c963-1d25-4f0b-b89d-b1b1d88cc4cb", messageSent.get("token"), "Expected: correct token be set");
+	}
+
+	@Test
+	void testLogin_EmailAddressNotAvailable_RaiseUserNotFoundException() {
+		LoginRequestDTO loginRequestDTO = LoginRequestDTO.builder()
+				.emailAddress("unavailable.email.address@gmail.com")
+				.build();
+		when(mockUserLoginRepository.findByEmailAddress("unavailable.email.address@gmail.com"))
+			.thenReturn(Optional.empty());
+		UserNotFoundException ex = assertThrows(UserNotFoundException.class,
+				() -> authenticationServiceImpl.login(loginRequestDTO));
+		assertEquals("invalid email or password.", ex.getMessage());
 	}
 }
