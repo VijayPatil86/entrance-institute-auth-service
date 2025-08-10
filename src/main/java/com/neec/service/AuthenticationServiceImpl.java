@@ -53,7 +53,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 	@Override
 	public void registerUser(RegistrationRequestDTO dto) {
 		String emailAddress = dto.getEmailAddress();
-		Optional<UserLogin> optExistingUser = userLoginRepository.findByEmailAddress(emailAddress);
+		Optional<UserLogin> optExistingUser = userLoginRepository.findByEmailAddress(emailAddress.trim());
 		if(optExistingUser.isPresent()) {
 			throw new UserAlreadyExistsException("Email is already used.");
 		}
