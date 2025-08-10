@@ -27,8 +27,12 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neec.config.SecurityConfig;
+import com.neec.dto.LoginRequestDTO;
 import com.neec.dto.RegistrationRequestDTO;
+import com.neec.exception.UserAccountSuspendedException;
 import com.neec.exception.UserAlreadyExistsException;
+import com.neec.exception.UserNotFoundException;
+import com.neec.exception.UserNotVerifiedException;
 import com.neec.service.AuthenticationService;
 
 @WebMvcTest(controllers = AuthenticationController.class)
@@ -155,10 +159,94 @@ public class AuthenticationControllerTest {
 		assertEquals(HttpStatus.CONFLICT.value(), result.getResponse().getStatus());
 	}
 	
+	@Test
+	void testLogin_EmailAddressNotFound_Return_401_UNAUTHORIZED() throws Exception {
+		LoginRequestDTO dto = LoginRequestDTO.builder()
+				.emailAddress("email.address.not.found@gmail.com")
+				.password("P@$$w0rd")
+				.build();
+		doThrow(new UserNotFoundException("invalid email or password."))
+			.when(mockAuthenticationService).login(any(LoginRequestDTO.class));
+		RequestBuilder request = MockMvcRequestBuilders.post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(toJsonString(dto));
+		MvcResult result = mockMvc.perform(request)
+				.andDo(print())
+				.andReturn();
+		verify(mockAuthenticationService, times(1)).login(any(LoginRequestDTO.class));
+		assertEquals(HttpStatus.UNAUTHORIZED.value(), result.getResponse().getStatus());
+		JsonNode jsonNode = toJsonNode(result.getResponse().getContentAsString());
+		assertEquals("invalid email or password.", jsonNode.get("error").asText());
+	}
+
+	@Test
+	void testLogin_EmailAddressExists_InvalidPassword_Return_401_UNAUTHORIZED() throws Exception {
+		LoginRequestDTO dto = LoginRequestDTO.builder()
+				.emailAddress("email.address.found@gmail.com")
+				.password("invalid-password")
+				.build();
+		doThrow(new UserNotFoundException("invalid email or password."))
+			.when(mockAuthenticationService).login(any(LoginRequestDTO.class));
+		RequestBuilder request = MockMvcRequestBuilders.post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(toJsonString(dto));
+		MvcResult result = mockMvc.perform(request)
+				.andDo(print())
+				.andReturn();
+		verify(mockAuthenticationService, times(1)).login(any(LoginRequestDTO.class));
+		assertEquals(HttpStatus.UNAUTHORIZED.value(), result.getResponse().getStatus());
+		JsonNode jsonNode = toJsonNode(result.getResponse().getContentAsString());
+		assertEquals("invalid email or password.", jsonNode.get("error").asText());
+	}
+
+	@Test
+	void testLogin_ValidLoginCredentials_AccountSuspended_Return_401_UNAUTHORIZED() throws Exception {
+		LoginRequestDTO dto = LoginRequestDTO.builder()
+				.emailAddress("email.address.found@gmail.com")
+				.password("valid-password")
+				.build();
+		doThrow(new UserAccountSuspendedException("Your account is suspended. Please contact Administrator"))
+			.when(mockAuthenticationService).login(any(LoginRequestDTO.class));
+		RequestBuilder request = MockMvcRequestBuilders.post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(toJsonString(dto));
+		MvcResult result = mockMvc.perform(request)
+				.andDo(print())
+				.andReturn();
+		verify(mockAuthenticationService, times(1)).login(any(LoginRequestDTO.class));
+		assertEquals(HttpStatus.UNAUTHORIZED.value(), result.getResponse().getStatus());
+		JsonNode jsonNode = toJsonNode(result.getResponse().getContentAsString());
+		assertEquals("Your account is suspended. Please contact Administrator", jsonNode.get("error").asText());
+	}
+
+	@Test
+	void testLogin_ValidLoginCredentials_AccountNotVerified_Return_401_UNAUTHORIZED() throws Exception {
+		LoginRequestDTO dto = LoginRequestDTO.builder()
+				.emailAddress("email.address.found@gmail.com")
+				.password("valid-password")
+				.build();
+		doThrow(new UserNotVerifiedException("Your account is not verified. Please check your email."))
+			.when(mockAuthenticationService).login(any(LoginRequestDTO.class));
+		RequestBuilder request = MockMvcRequestBuilders.post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(toJsonString(dto));
+		MvcResult result = mockMvc.perform(request)
+				.andDo(print())
+				.andReturn();
+		verify(mockAuthenticationService, times(1)).login(any(LoginRequestDTO.class));
+		assertEquals(HttpStatus.UNAUTHORIZED.value(), result.getResponse().getStatus());
+		JsonNode jsonNode = toJsonNode(result.getResponse().getContentAsString());
+		assertEquals("Your account is not verified. Please check your email.", jsonNode.get("error").asText());
+	}
+
 	private String toJsonString(RegistrationRequestDTO dto) throws JsonProcessingException {
 		return objectMapper.writeValueAsString(dto);
 	}
 	
+	private String toJsonString(LoginRequestDTO dto) throws JsonProcessingException {
+		return objectMapper.writeValueAsString(dto);
+	}
+
 	private JsonNode toJsonNode(String jsonString) throws JsonMappingException, JsonProcessingException {
 		return objectMapper.readTree(jsonString);
 	}
