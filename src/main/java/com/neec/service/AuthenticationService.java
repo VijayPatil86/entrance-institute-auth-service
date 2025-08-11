@@ -22,4 +22,5 @@ public interface AuthenticationService {
 	 * @throws UserNotVerifiedException when user account verification is in Pending stage
 	 */
 	String login(LoginRequestDTO loginRequestDTO);
+	void verifyUser(String token);
 }
