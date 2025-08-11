@@ -17,6 +17,7 @@ import com.neec.dto.RegistrationRequestDTO;
 import com.neec.entity.UserLogin;
 import com.neec.enums.EnumRole;
 import com.neec.enums.EnumUserAccountStatus;
+import com.neec.exception.InvalidTokenException;
 import com.neec.exception.UserAccountSuspendedException;
 import com.neec.exception.UserAlreadyExistsException;
 import com.neec.exception.UserNotFoundException;
@@ -93,5 +94,19 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 				userLogin.getEmailAddress(),
 				userLogin.getRole().name());
 		return jwtToken;
+	}
+
+	@Transactional
+	@Observed(name = "authentication.service.verify.user.account", contextualName = "user account verification")
+	public void verifyUser(String token) {
+		UserLogin userLogin = userLoginRepository.findByVerificationToken(token)
+				.orElseThrow(() -> new InvalidTokenException("invalid or expired verification token."));
+		if(userLogin.getVerificationTokenExpiresAt().isBefore(OffsetDateTime.now(ZoneOffset.UTC))) {
+			throw new InvalidTokenException("Verification token has expired.");
+		}
+		userLogin.setAccountStatus(EnumUserAccountStatus.ACTIVE);
+		userLogin.setVerificationToken(null);
+		userLogin.setVerificationTokenExpiresAt(null);
+		userLoginRepository.save(userLogin);
 	}
 }
