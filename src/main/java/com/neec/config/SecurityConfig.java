@@ -11,6 +11,7 @@ public class SecurityConfig {
 	private static final String[] PUBLIC_ENPOINTS = {
 		"/api/v1/auth/register",
 		"/api/v1/auth/login",
+		"/api/v1/auth/verify",
 		"/swagger-ui/**",	// http://localhost:9051/swagger-ui/index.html
 		"/v3/api-docs/**"
 	};
