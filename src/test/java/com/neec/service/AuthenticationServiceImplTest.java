@@ -2,18 +2,24 @@ package com.neec.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 
+import org.aopalliance.intercept.Invocation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +35,7 @@ import com.neec.dto.RegistrationRequestDTO;
 import com.neec.entity.UserLogin;
 import com.neec.enums.EnumRole;
 import com.neec.enums.EnumUserAccountStatus;
+import com.neec.exception.InvalidTokenException;
 import com.neec.exception.UserAccountSuspendedException;
 import com.neec.exception.UserAlreadyExistsException;
 import com.neec.exception.UserNotFoundException;
@@ -263,5 +270,56 @@ public class AuthenticationServiceImplTest {
 		assertEquals("available.email.address@gmail.com", emailAddressCaptor.getValue());
 		assertEquals(EnumRole.APPLICANT.name(), userRoleCaptor.getValue());
 		assertEquals("mock-jwt-token", jwtToken);
+	}
+
+	@Test
+	void testVerifyUserEmailAddress_NonExistingToken_Raise_InvalidTokenException() {
+		String nonExistingToken = "some-invalid-token";
+		when(mockUserLoginRepository.findByVerificationToken(nonExistingToken))
+			.thenReturn(Optional.empty());
+		InvalidTokenException ex =
+				assertThrows(InvalidTokenException.class,
+						() -> authenticationServiceImpl.verifyUser(nonExistingToken));
+		verify(mockUserLoginRepository).findByVerificationToken(nonExistingToken);
+		verify(mockUserLoginRepository, never()).save(any(UserLogin.class));
+		assertTrue(ex.getMessage().equals("invalid or expired verification token."));
+	}
+
+	@Test
+	void testVerifyUserEmailAddress_ExistingExpiredToken_Raise_InvalidTokenException() {
+		String existingToken = "existingToken";
+		OffsetDateTime yesterdayExpirationDateTime =
+				OffsetDateTime.now(ZoneOffset.UTC).minusDays(1);
+		UserLogin userLogin = UserLogin.builder()
+				.verificationTokenExpiresAt(yesterdayExpirationDateTime)
+				.build();
+		when(mockUserLoginRepository.findByVerificationToken(existingToken))
+			.thenReturn(Optional.of(userLogin));
+		InvalidTokenException ex =
+				assertThrows(InvalidTokenException.class,
+						() -> authenticationServiceImpl.verifyUser(existingToken));
+		verify(mockUserLoginRepository).findByVerificationToken(existingToken);
+		assertTrue(ex.getMessage().equals("Verification token has expired."));
+	}
+
+	@Test
+	void testVerifyUserEmailAddress_ExistingActiveToken_UpdateTokenInDB() {
+		String existingToken = "existingToken";
+		OffsetDateTime tomorrowExpirationDateTime =
+				OffsetDateTime.now(ZoneOffset.UTC).plusDays(1);
+		UserLogin userLogin = UserLogin.builder()
+				.verificationTokenExpiresAt(tomorrowExpirationDateTime)
+				.build();
+		when(mockUserLoginRepository.findByVerificationToken(existingToken))
+			.thenReturn(Optional.of(userLogin));
+		authenticationServiceImpl.verifyUser(existingToken);
+		ArgumentCaptor<UserLogin> argCaptorUserLogin =
+				ArgumentCaptor.forClass(UserLogin.class);
+		verify(mockUserLoginRepository, times(1)).save(argCaptorUserLogin.capture());
+		UserLogin captoredUserLogin = argCaptorUserLogin.getValue();
+		assertEquals(EnumUserAccountStatus.ACTIVE, captoredUserLogin.getAccountStatus());
+		assertNull(captoredUserLogin.getVerificationToken());
+		assertNull(captoredUserLogin.getVerificationTokenExpiresAt());
+
 	}
 }
