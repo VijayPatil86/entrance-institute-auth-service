@@ -5,10 +5,13 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.neec.dto.LoginRequestDTO;
@@ -16,21 +19,24 @@ import com.neec.dto.LoginResponseDTO;
 import com.neec.dto.RegistrationRequestDTO;
 import com.neec.service.AuthenticationService;
 
+import io.micrometer.observation.annotation.Observed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 
 @RestController
 @CrossOrigin
 @RequestMapping("/api/v1/auth")
+@Validated
 public class AuthenticationController {
 	private AuthenticationService authenticationService;
-	
+
 	public AuthenticationController(AuthenticationService authenticationService) {
 		this.authenticationService = authenticationService;
 	}
-	
+
 	@Tag(name = "Registration", description = "Performs Registration")
 	@Operation(
 			summary = "Registration using valid email address, password",
@@ -60,5 +66,23 @@ public class AuthenticationController {
 	public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDTO dto) {
 		String jwtToken = authenticationService.login(dto);
 		return ResponseEntity.ok(LoginResponseDTO.builder().jwtToken(jwtToken).build());
+	}
+
+	@Tag(name = "Email Verification", description = "Verifies a user's email address")
+	@Operation(
+			summary = "Verifies an account using the token from the verification email",
+			responses = {
+					@ApiResponse(responseCode = "200", description = "User email address successfully verified"),
+					@ApiResponse(responseCode = "400", description = "missing or invalid token"),
+					@ApiResponse(responseCode = "401", description = "verification token is expired")
+			}
+	)
+
+	@Observed(name = "authentication.service.verify.user.account", contextualName = "user account verification")
+	@GetMapping("/verify")
+	public ResponseEntity<?> verifyUserAccount(
+			@RequestParam("token") @NotBlank(message = "Verification token can not be empty.") String token) {
+		authenticationService.verifyUser(token);
+		return ResponseEntity.ok("Your email address has been successfully verified. You can now log in.");
 	}
 }
