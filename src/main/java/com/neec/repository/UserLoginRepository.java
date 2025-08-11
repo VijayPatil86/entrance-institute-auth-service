@@ -8,4 +8,5 @@ import com.neec.entity.UserLogin;
 
 public interface UserLoginRepository extends JpaRepository<UserLogin, Long> {
 	Optional<UserLogin> findByEmailAddress(String emailAddress);
+	Optional<UserLogin> findByVerificationToken(String verificationToken);
 }
