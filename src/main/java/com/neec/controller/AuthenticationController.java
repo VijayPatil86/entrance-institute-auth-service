@@ -83,6 +83,6 @@ public class AuthenticationController {
 	public ResponseEntity<?> verifyUserAccount(
 			@RequestParam("token") @NotBlank(message = "Verification token can not be empty.") String token) {
 		authenticationService.verifyUser(token);
-		return ResponseEntity.ok("Your email address has been successfully verified. You can now log in.");
+		return ResponseEntity.ok(Map.of("status", "Your email address has been successfully verified. You can now log in."));
 	}
 }
